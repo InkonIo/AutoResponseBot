@@ -221,11 +221,13 @@ async def clear_old_history():
     """Очищает историю старше 7 дней"""
     async with db_pool.acquire() as conn:
         cutoff_date = datetime.now() - timedelta(days=7)
-        deleted = await conn.fetchval(
-            "DELETE FROM chat_history WHERE created_at < $1 RETURNING COUNT(*)",
+        result = await conn.execute(
+            "DELETE FROM chat_history WHERE created_at < $1",
             cutoff_date
         )
-        if deleted:
+        # result это строка типа "DELETE 5"
+        deleted = int(result.split()[-1]) if result.split()[-1].isdigit() else 0
+        if deleted > 0:
             print(f"🗑 Очищено {deleted} старых сообщений из истории")
 
 
@@ -547,7 +549,9 @@ async def clear_history(message: types.Message):
         return
     
     async with db_pool.acquire() as conn:
-        count = await conn.fetchval("DELETE FROM chat_history RETURNING COUNT(*)")
+        result = await conn.execute("DELETE FROM chat_history")
+        # result это строка типа "DELETE 5"
+        count = int(result.split()[-1]) if result.split()[-1].isdigit() else 0
     
     # Очищаем память
     chat_histories.clear()
